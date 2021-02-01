@@ -150,6 +150,14 @@ func publishAlert(client *github.Client, report deepalert.Report, settings githu
 			alert.Timestamp.Format("20060102_150405"), hv)
 		content, resp, err := client.Repositories.CreateFile(ctx, owner, repo, fpath, &opt)
 		if err != nil {
+			if strings.Contains(err.Error(), ": 409 ") {
+				logger.With("owner", arr[0]).
+					With("repo", arr[1]).
+					With("content", content).
+					With("fpath", fpath).Info("409 error (conflicted) is returned, but ignore")
+				return "", nil
+			}
+
 			e := golambda.NewError("Failed to create a file").
 				With("owner", arr[0]).
 				With("repo", arr[1]).
