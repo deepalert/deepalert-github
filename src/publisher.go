@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -56,7 +57,7 @@ func newGithubAppClient(endpoint string, appID int64, installID int64, privateKe
 		With("privateKey.length", len(privateKey)).
 		Debug("Creating github app client")
 
-	itr, err := ghinstallation.New(tr, appID, installID, privateKey)
+	itr, err := ghinstallation.New(tr, appID, installID+1000, privateKey)
 	if err != nil {
 		return nil, golambda.WrapError(err, "Fail to create GH client").With("appID", appID).With("installID", installID)
 	}
@@ -149,7 +150,20 @@ func publishAlert(client *github.Client, report deepalert.Report, settings githu
 			alert.Timestamp.Format("20060102_150405"), hv)
 		content, resp, err := client.Repositories.CreateFile(ctx, owner, repo, fpath, &opt)
 		if err != nil {
-			return "", golambda.WrapError(err).With("owner", owner).With("repo", repo).With("fpath", fpath).With("resp", resp).With("content", content)
+			e := golambda.NewError("Failed to create a file").
+				With("owner", arr[0]).
+				With("repo", arr[1]).
+				With("content", content).
+				With("fpath", fpath)
+			if resp != nil {
+				e = e.With("code", resp.StatusCode)
+				if body, err := ioutil.ReadAll(resp.Body); err != nil {
+					e = e.With("read error", err)
+				} else {
+					e = e.With("body", body)
+				}
+			}
+			return "", e
 		}
 	}
 	return "", nil
@@ -175,8 +189,20 @@ func publishReport(client *github.Client, report deepalert.Report, settings gith
 
 	issue, resp, err := client.Issues.Create(ctx, arr[0], arr[1], &issueReq)
 	if err != nil {
-		return nil, golambda.WrapError(err).With("owner", arr[0]).With("repo", arr[1])
+		e := golambda.NewError("Failed to create an issue").
+			With("owner", arr[0]).
+			With("repo", arr[1])
+		if resp != nil {
+			e = e.With("code", resp.StatusCode)
+			if body, err := ioutil.ReadAll(resp.Body); err != nil {
+				e = e.With("read error", err)
+			} else {
+				e = e.With("body", body)
+			}
+		}
+		return nil, e
 	}
+
 	if resp.StatusCode != 201 {
 		return nil, golambda.NewError("Fail to create issue because response code is not 201").With("code", resp.StatusCode)
 	}

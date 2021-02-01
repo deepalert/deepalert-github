@@ -77,16 +77,6 @@ export class GitHubStack extends cdk.Stack {
       },
     });
 
-    /*
-    if (props.vpcId) {
-      vpc = ec2.Vpc.fromVpcAttributes(this, 'vpc', {
-        vpcId: props.vpcId,
-        privateSubnetIds: props.subnetIds,
-        availabilityZones: cdk.Fn.getAzs(),
-      })
-    }
-    */
-
     var securityGroups: ec2.ISecurityGroup[] | undefined = undefined;
     if (props.securityGroupIds) {
       securityGroups = props.securityGroupIds.map((sgID) => {
