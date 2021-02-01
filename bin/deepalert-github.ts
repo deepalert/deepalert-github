@@ -5,7 +5,8 @@ import { GitHubStack } from '../lib/stack';
 
 const app = new cdk.App();
 new GitHubStack(app, process.env.STACK_ID!, {
-    reportTopicARN: process.env.REPORT_TOPIC_ARN!,
-    secretARN: process.env.SECRET_ARN!,
-    githubRepo: process.env.GITHUB_REPO!,
+    reportTopicARN: 'arn:aws:sns:us-east-1:111122223333:my-topic',
+    secretARN: 'test-secret-arn',
+    githubRepo: 'test/repository',
+    securityGroupIds: ['sg-1'],
 });

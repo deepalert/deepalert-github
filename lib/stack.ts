@@ -3,10 +3,13 @@ import * as lambda from '@aws-cdk/aws-lambda';
 import * as iam from '@aws-cdk/aws-iam';
 import * as sns from '@aws-cdk/aws-sns';
 import * as sqs from '@aws-cdk/aws-sqs';
+import * as ec2 from '@aws-cdk/aws-ec2';
 import { SqsEventSource } from '@aws-cdk/aws-lambda-event-sources';
 import { SqsSubscription } from '@aws-cdk/aws-sns-subscriptions';
 
 import * as path from 'path';
+import { SubnetNetworkAclAssociation, Vpc } from '@aws-cdk/aws-ec2';
+import { countReset } from 'console';
 
 export interface GitHubProps extends cdk.StackProps {
   lambdaRoleARN?: string;
@@ -25,6 +28,8 @@ export interface GitHubProps extends cdk.StackProps {
   githubRepo: string;
 
   // Optional properties
+  securityGroupIds?: string[];
+
   sentryDsn?: string;
   sentryEnv?: string;
   logLevel?: string;
@@ -72,6 +77,23 @@ export class GitHubStack extends cdk.Stack {
       },
     });
 
+    /*
+    if (props.vpcId) {
+      vpc = ec2.Vpc.fromVpcAttributes(this, 'vpc', {
+        vpcId: props.vpcId,
+        privateSubnetIds: props.subnetIds,
+        availabilityZones: cdk.Fn.getAzs(),
+      })
+    }
+    */
+
+    var securityGroups: ec2.ISecurityGroup[] | undefined = undefined;
+    if (props.securityGroupIds) {
+      securityGroups = props.securityGroupIds.map((sgID) => {
+        return ec2.SecurityGroup.fromSecurityGroupId(this, sgID, sgID);
+      });
+    }
+
     this.emitter = new lambda.Function(this, 'emitter', {
       runtime: lambda.Runtime.GO_1_X,
       handler: 'emitter',
@@ -79,9 +101,11 @@ export class GitHubStack extends cdk.Stack {
       role: lambdaRole,
       events: [new SqsEventSource(reportQueue)],
       timeout: taskQueueTimeout,
+
+      securityGroups: securityGroups,
       environment: {
         SECRET_ARN: props.secretARN,
-        GITHUB_ENDPOINT: props.githubEndpoint || 'https://api.github.com',
+        GITHUB_ENDPOINT: props.githubEndpoint || '',
         GITHUB_REPO: props.githubRepo,
 
         SENTRY_DSN: props.sentryDsn || "",
