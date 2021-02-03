@@ -8,8 +8,6 @@ import { SqsEventSource } from '@aws-cdk/aws-lambda-event-sources';
 import { SqsSubscription } from '@aws-cdk/aws-sns-subscriptions';
 
 import * as path from 'path';
-import { SubnetNetworkAclAssociation, Vpc } from '@aws-cdk/aws-ec2';
-import { countReset } from 'console';
 
 export interface GitHubProps extends cdk.StackProps {
   lambdaRoleARN?: string;
