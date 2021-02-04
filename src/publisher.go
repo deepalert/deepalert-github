@@ -57,7 +57,7 @@ func newGithubAppClient(endpoint string, appID int64, installID int64, privateKe
 		With("privateKey.length", len(privateKey)).
 		Debug("Creating github app client")
 
-	itr, err := ghinstallation.New(tr, appID, installID+1000, privateKey)
+	itr, err := ghinstallation.New(tr, appID, installID, privateKey)
 	if err != nil {
 		return nil, golambda.WrapError(err, "Fail to create GH client").With("appID", appID).With("installID", installID)
 	}

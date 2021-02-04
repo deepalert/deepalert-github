@@ -1,10 +1,14 @@
 package main_test
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/Netflix/go-env"
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/deepalert/deepalert"
 	"github.com/google/uuid"
 	"github.com/m-mizutani/golambda"
@@ -152,4 +156,22 @@ func TestIntegration(t *testing.T) {
 	var event golambda.Event
 	require.NoError(t, event.EncapSNSonSQSMessage(report))
 	require.NoError(t, main.Handler(args, event))
+}
+
+func TestWithEventData(t *testing.T) {
+	args := main.Arguments{}
+	_, err := env.UnmarshalFromEnviron(&args)
+	require.NoError(t, err)
+	if args.SecretARN == "" || args.GitHubEndpoint == "" || args.GitHubRepo == "" {
+		t.Skipf("not enough arguments %v", args)
+	}
+	eventDataPath, ok := os.LookupEnv("EVENT_DATA_PATH")
+	if !ok {
+		t.Skip("EVENT_DATA_PATH is not set")
+	}
+	data, err := ioutil.ReadFile(eventDataPath)
+	require.NoError(t, err)
+	var sqsEvent events.SQSEvent
+	require.NoError(t, json.Unmarshal(data, &sqsEvent))
+	require.NoError(t, main.Handler(args, golambda.Event{Origin: sqsEvent}))
 }
