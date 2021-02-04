@@ -9,6 +9,11 @@ import { SqsSubscription } from '@aws-cdk/aws-sns-subscriptions';
 
 import * as path from 'path';
 
+export interface vpcConfig {
+  vpcId: string;
+  securityGroupIds: string[];
+  subnetIds: string[];
+}
 export interface GitHubProps extends cdk.StackProps {
   lambdaRoleARN?: string;
 
@@ -26,7 +31,7 @@ export interface GitHubProps extends cdk.StackProps {
   githubRepo: string;
 
   // Optional properties
-  securityGroupIds?: string[];
+  vpcConfig?: vpcConfig;
 
   sentryDsn?: string;
   sentryEnv?: string;
@@ -76,10 +81,32 @@ export class GitHubStack extends cdk.Stack {
     });
 
     var securityGroups: ec2.ISecurityGroup[] | undefined = undefined;
-    if (props.securityGroupIds) {
-      securityGroups = props.securityGroupIds.map((sgID) => {
+    var vpc: ec2.IVpc | undefined = undefined;
+    // var vpcSubnets: ec2.SelectedSubnets | undefined = undefined;
+    if (props.vpcConfig) {
+      vpc = ec2.Vpc.fromVpcAttributes(this, 'Vpc', {
+          vpcId: props.vpcConfig.vpcId,
+          availabilityZones: cdk.Fn.getAzs(),
+          privateSubnetIds: props.vpcConfig.subnetIds,
+      })
+      securityGroups = props.vpcConfig.securityGroupIds.map((sgID) => {
         return ec2.SecurityGroup.fromSecurityGroupId(this, sgID, sgID);
       });
+
+      /*
+      vpc = ec2.Vpc.fromLookup(this, 'Vpc', {
+        vpcId: props.vpcConfig.vpcId,
+      })
+
+
+      vpcSubnets = vpc.selectSubnets({
+        subnets: props.vpcConfig.subnetIds.map((subnetId ): ec2.ISubnet => {
+          return ec2.Subnet.fromSubnetAttributes(this, subnetId, {
+            subnetId: subnetId,
+          });
+        }),
+      });
+      */
     }
 
     this.emitter = new lambda.Function(this, 'emitter', {
@@ -90,7 +117,10 @@ export class GitHubStack extends cdk.Stack {
       events: [new SqsEventSource(reportQueue)],
       timeout: taskQueueTimeout,
 
-      securityGroups: securityGroups,
+      vpc,
+      // vpcSubnets,
+      securityGroups,
+
       environment: {
         SECRET_ARN: props.secretARN,
         GITHUB_ENDPOINT: props.githubEndpoint || '',
